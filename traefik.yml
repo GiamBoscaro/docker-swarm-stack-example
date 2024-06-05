@@ -2,6 +2,8 @@ log:
   level: DEBUG
   filePath: "/var/log/traefik.log"
 
+ping: {}
+
 accessLog:
   filePath: "/var/log/access.log"
 

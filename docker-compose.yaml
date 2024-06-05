@@ -43,21 +43,38 @@ services:
 
   client:
     image: docker.io/giammarcoboscaro/ticketing-client
-    # container_name: "client-{{.Task.ID}}"
-    # hostname: "client-{{.Task.ID}}"
+    hostname: client
+    container_name: client
     ports:
       - 3000:3000
     environment:
       - BASE_URL=http://gboscaro-udemy-ticketing.duckdns.org
     networks:
       - private
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    depends_on:
+      auth:
+        condition: service_healthy
+      tickets:
+        condition: service_healthy
+      orders:
+        condition: service_healthy
+      expiration:
+        condition: service_healthy
+      payments:
+        condition: service_healthy
 
   ### AUTHENTICATION ###
   
   auth:
     image: docker.io/giammarcoboscaro/ticketing-auth
-    # container_name: "auth-{{.Task.ID}}"
-    # hostname: "auth-{{.Task.ID}}"
+    hostname: auth
+    container_name: auth
     ports:
       - 3001:3000
     env_file:
@@ -67,22 +84,39 @@ services:
     networks:
       - auth
       - private
+    depends_on:
+      auth-mongo:
+        condition: service_healthy           
+      nats:
+        condition: service_started 
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/users/currentuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   auth-mongo:
-    # container_name: "auth-mongo-{{.Task.ID}}"
-    # hostname: "auth-mongo-{{.Task.ID}}"
     image: mongo
+    hostname: auth-mongo
+    container_name: auth-mongo
     volumes:
       - auth-data:/data/db
     networks:
       - auth
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/auth --quiet
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
   ### TICKETS ###
   
   tickets:
     image: docker.io/giammarcoboscaro/ticketing-tickets
-    # container_name: "tickets-{{.Task.ID}}"
-    # hostname: "tickets-{{.Task.ID}}"
+    hostname: tickets
+    container_name: tickets
     ports:
       - 3002:3000
     env_file:
@@ -95,22 +129,39 @@ services:
     networks:
       - private
       - tickets
+    depends_on:
+      tickets-mongo:
+        condition: service_healthy           
+      nats:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/tickets"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   tickets-mongo:
-    # container_name: "tickets-mongo-{{.Task.ID}}"
-    # hostname: "tickets-mongo-{{.Task.ID}}"
     image: mongo
+    hostname: tickets-mongo
+    container_name: tickets-mongo
     volumes:
       - tickets-data:/data/db
     networks:
       - tickets
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/tickets --quiet
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
   ### ORDERS ###
   
   orders:
     image: docker.io/giammarcoboscaro/ticketing-orders
-    # container_name: "orders-{{.Task.ID}}"
-    # hostname: "orders-{{.Task.ID}}"
+    hostname: orders
+    container_name: orders
     ports:
       - 3003:3000
     env_file:
@@ -123,22 +174,39 @@ services:
     networks:
       - private
       - orders
+    depends_on:
+      orders-mongo:
+        condition: service_healthy           
+      nats:
+        condition: service_started 
+    healthcheck:
+      test: ping -c 1 localhost:3000
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 2s
 
   orders-mongo:
-    # container_name: "orders-mongo-{{.Task.ID}}"
-    # hostname: "orders-mongo-{{.Task.ID}}"
     image: mongo
+    hostname: orders-mongo
+    container_name: orders-mongo
     volumes:
       - orders-data:/data/db
     networks:
       - orders
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/orders --quiet
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
   ### PAYMENTS ###
   
   payments:
     image: docker.io/giammarcoboscaro/ticketing-payments
-    # container_name: "payments-{{.Task.ID}}"
-    # hostname: "payments-{{.Task.ID}}"
+    hostname: payments
+    container_name: payments
     ports:
       - 3004:3000
     env_file:
@@ -151,22 +219,39 @@ services:
     networks:
       - private
       - payments
+    depends_on:
+      payments-mongo:
+        condition: service_healthy           
+      nats:
+        condition: service_started 
+    healthcheck:
+      test: ping -c 1 localhost:3000
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 2s
 
   payments-mongo:
-    # container_name: "payments-mongo-{{.Task.ID}}"
-    # hostname: "payments-mongo-{{.Task.ID}}"
     image: mongo
+    hostname: payments-mongo
+    container_name: payments-mongo
     volumes:
       - payments-data:/data/db
     networks:
       - payments
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/payments --quiet
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
   ### EXPIRATION ###
   
   expiration:
     image: docker.io/giammarcoboscaro/ticketing-expiration
-    # container_name: "expiration-{{.Task.ID}}"
-    # hostname: "expiration-{{.Task.ID}}"
+    hostname: expiration
+    container_name: expiration
     ports:
       - 3005:3000
     environment:
@@ -177,20 +262,37 @@ services:
     networks:
       - private
       - expiration
+    depends_on:
+      expiration-redis:
+        condition: service_healthy           
+      nats:
+        condition: service_started
+    healthcheck:
+      test: ping -c 1 localhost:3000
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 2s
 
   expiration-redis:
-    # container_name: "expiration-redis-{{.Task.ID}}"
-    # hostname: "expiration-redis-{{.Task.ID}}"
     image: redis
+    hostname: expiration-redis
+    container_name: expiration-redis
     networks:
       - expiration
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 2s
 
   ### NATS ###
 
   nats:
     image: nats-streaming:0.25.6
-    # container_name: "nats-{{.Task.ID}}"
-    # hostname: "nats-{{.Task.ID}}"
+    hostname: nats
+    container_name: nats
     command: 
       [
         '-p', '4222',
@@ -206,13 +308,19 @@ services:
       - 8222:8222
     networks:
       - private
+    # healthcheck:
+    #   test: ["CMD", "wget", "--spider", "http://localhost:8222/varz"]
+    #   interval: 2s
+    #   timeout: 5s
+    #   retries: 10
+    #   start_period: 5s
 
   ### INFRA ###
 
   traefik:
     image: traefik:v2.11.3
-    # container_name: "traefik-{{.Task.ID}}"
-    # hostname: "traefik-{{.Task.ID}}"
+    hostname: traefik
+    container_name: traefik
     ports:
       - 80:80
       - 8080:8080
@@ -222,11 +330,17 @@ services:
       - ./traefik.yml:/traefik.yml:ro
     networks:
       - public
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
 
   caddy:
     image: caddy:2.8.4-alpine
-    # container_name: "caddy-{{.Task.ID}}"
-    # hostname: "caddy-{{.Task.ID}}"
+    hostname: caddy
+    container_name: caddy
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     labels:
@@ -237,11 +351,17 @@ services:
     networks:
       - public
       - private
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/metrics"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
 
   duckdns:
-    image: ghcr.io/linuxserver/duckdns:version-72e081dd
-    # container_name: "duckdns-{{.Task.ID}}"
-    # hostname: "duckdns-{{.Task.ID}}"
+    image: ghcr.io/linuxserver/duckdns:version-1ffe4e04
+    hostname: duckdns
+    container_name: duckdns
     env_file:
       - .env
     environment:

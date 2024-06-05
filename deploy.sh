@@ -11,20 +11,25 @@ while getopts 'qs' flag; do
   esac
 done
 
-# docker context use swarm-manager
+docker context use swarm-manager
 
 if [[ $SWARM -eq 1 ]]
 then
-    echo "Deploy Swarm Stack..."
-    exit 1
+    then
+        echo "Removing Docker Swarm Stack..."
+        docker stack rm swarm-example
+    else
+        echo "Deploying Docker Swarm Stack..."
+        docker stack deploy --compose-file docker-compose.stack.yaml swarm-example
+    fi
 else
     if [[ $QUIT -eq 1 ]]
     then
         echo "Stopping Docker Compose..."
-        docker compose -f docker-compose.stack.yaml down
+        docker compose -f docker-compose.yaml down
     else
         echo "Starting Docker Compose..."
-        docker compose -f docker-compose.stack.yaml up -d
+        docker compose -f docker-compose.yaml up -d
     fi
 fi
 
