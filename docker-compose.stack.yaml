@@ -1,0 +1,261 @@
+version: '3.8'
+
+volumes:
+  auth-data:
+    name: auth-data
+    driver: local
+  tickets-data:
+    name: tickets-data
+    driver: local
+  orders-data:
+    name: orders-data
+    driver: local
+  payments-data:
+    name: payments-data
+    driver: local
+
+networks:
+  public:
+    name: public
+    # driver: overlay
+  private:
+    name: private
+    # driver: overlay
+  auth:
+    name: auth
+    # driver: overlay
+  tickets:
+    name: tickets
+    # driver: overlay
+  orders:
+    name: orders
+    # driver: overlay
+  payments:
+    name: payments
+    # driver: overlay
+  expiration:
+    name: expiration
+    # driver: overlay
+
+services:
+
+  ### FRONTEND ###
+
+  client:
+    image: docker.io/giammarcoboscaro/ticketing-client
+    # container_name: "client-{{.Task.ID}}"
+    # hostname: "client-{{.Task.ID}}"
+    ports:
+      - 3000:3000
+    environment:
+      - BASE_URL=http://gboscaro-udemy-ticketing.duckdns.org
+    networks:
+      - private
+
+  ### AUTHENTICATION ###
+  
+  auth:
+    image: docker.io/giammarcoboscaro/ticketing-auth
+    # container_name: "auth-{{.Task.ID}}"
+    # hostname: "auth-{{.Task.ID}}"
+    ports:
+      - 3001:3000
+    env_file:
+      - .env
+    environment:
+      - MONGO_URI=mongodb://auth-mongo:27017/auth
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.routers.auth.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`)"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)"
+    networks:
+      - auth
+      - private
+
+  auth-mongo:
+    # container_name: "auth-mongo-{{.Task.ID}}"
+    # hostname: "auth-mongo-{{.Task.ID}}"
+    image: mongo
+    volumes:
+      - auth-data:/data/db
+    networks:
+      - auth
+
+  ### TICKETS ###
+  
+  tickets:
+    image: docker.io/giammarcoboscaro/ticketing-tickets
+    # container_name: "tickets-{{.Task.ID}}"
+    # hostname: "tickets-{{.Task.ID}}"
+    ports:
+      - 3002:3000
+    env_file:
+      - .env
+    environment:
+      - NATS_CLIENT_ID=tickets
+      - NATS_URL=http://nats:4222
+      - NATS_CLUSTER_ID=ticketing
+      - MONGO_URI=mongodb://tickets-mongo:27017/tickets
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tickets.entrypoints=web"
+      - "traefik.http.routers.tickets.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`)"
+      - "traefik.http.routers.tickets.rule=PathPrefix(`/api/tickets`)"
+    networks:
+      - private
+      - tickets
+
+  tickets-mongo:
+    # container_name: "tickets-mongo-{{.Task.ID}}"
+    # hostname: "tickets-mongo-{{.Task.ID}}"
+    image: mongo
+    volumes:
+      - tickets-data:/data/db
+    networks:
+      - tickets
+
+  ### ORDERS ###
+  
+  orders:
+    image: docker.io/giammarcoboscaro/ticketing-orders
+    # container_name: "orders-{{.Task.ID}}"
+    # hostname: "orders-{{.Task.ID}}"
+    ports:
+      - 3003:3000
+    env_file:
+      - .env
+    environment:
+      - NATS_CLIENT_ID=orders
+      - NATS_URL=http://nats:4222
+      - NATS_CLUSTER_ID=ticketing
+      - MONGO_URI=mongodb://orders-mongo:27017/orders
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.orders.entrypoints=web"
+      - "traefik.http.routers.orders.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`)"
+      - "traefik.http.routers.orders.rule=PathPrefix(`/api/orders`)"
+    networks:
+      - private
+      - orders
+
+  orders-mongo:
+    # container_name: "orders-mongo-{{.Task.ID}}"
+    # hostname: "orders-mongo-{{.Task.ID}}"
+    image: mongo
+    volumes:
+      - orders-data:/data/db
+    networks:
+      - orders
+
+  ### PAYMENTS ###
+  
+  payments:
+    image: docker.io/giammarcoboscaro/ticketing-payments
+    # container_name: "payments-{{.Task.ID}}"
+    # hostname: "payments-{{.Task.ID}}"
+    ports:
+      - 3004:3000
+    env_file:
+      - .env
+    environment:
+      - NATS_CLIENT_ID=payments
+      - NATS_URL=http://nats:4222
+      - NATS_CLUSTER_ID=ticketing
+      - MONGO_URI=mongodb://payments-mongo:27017/payments
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.payments.entrypoints=web"
+      - "traefik.http.routers.payments.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`)"
+      - "traefik.http.routers.payments.rule=PathPrefix(`/api/payments`)"
+    networks:
+      - private
+      - payments
+
+  payments-mongo:
+    # container_name: "payments-mongo-{{.Task.ID}}"
+    # hostname: "payments-mongo-{{.Task.ID}}"
+    image: mongo
+    volumes:
+      - payments-data:/data/db
+    networks:
+      - payments
+
+  ### EXPIRATION ###
+  
+  expiration:
+    image: docker.io/giammarcoboscaro/ticketing-expiration
+    # container_name: "expiration-{{.Task.ID}}"
+    # hostname: "expiration-{{.Task.ID}}"
+    ports:
+      - 3005:3000
+    environment:
+      - NATS_CLIENT_ID=expiration
+      - NATS_URL=http://nats:4222
+      - NATS_CLUSTER_ID=ticketing
+      - REDIS_HOST=expiration-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.expiration.entrypoints=web"
+      - "traefik.http.routers.expiration.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`)"
+      - "traefik.http.routers.expiration.rule=PathPrefix(`/api/expiration`)"
+    networks:
+      - private
+      - expiration
+
+  expiration-redis:
+    # container_name: "expiration-redis-{{.Task.ID}}"
+    # hostname: "expiration-redis-{{.Task.ID}}"
+    image: redis
+    networks:
+      - expiration
+
+  ### NATS ###
+
+  nats:
+    image: nats-streaming:0.25.6
+    # container_name: "nats-{{.Task.ID}}"
+    # hostname: "nats-{{.Task.ID}}"
+    command: 
+      [
+        '-p', '4222',
+        '-m', '8222',
+        '-hbi', '5s',
+        '-hbt', '5s',
+        '-hbf', '2',
+        '-SD',
+        '-cid', 'ticketing',
+      ]
+    ports:
+      - 4222:4222
+      - 8222:8222
+    networks:
+      - private
+
+  ### INFRA ###
+
+  traefik:
+    image: traefik:v2.11.3
+    # container_name: "traefik-{{.Task.ID}}"
+    # hostname: "traefik-{{.Task.ID}}"
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /root/traefik.yml:/traefik.yml:ro
+    networks:
+      - public
+      - private
+
+  duckdns:
+    image: ghcr.io/linuxserver/duckdns:version-72e081dd
+    # container_name: "duckdns-{{.Task.ID}}"
+    # hostname: "duckdns-{{.Task.ID}}"
+    env_file:
+      - .env
+    environment:
+      - SUBDOMAINS=http://gboscaro-udemy-ticketing.duckdns.org
+      - LOG_FILE=false
+    networks:
+      - private
