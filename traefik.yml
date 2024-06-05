@@ -1,5 +1,9 @@
 log:
-  level: INFO
+  level: DEBUG
+  filePath: "/var/log/traefik.log"
+
+accessLog:
+  filePath: "/var/log/access.log"
 
 api:
   insecure: true
@@ -13,3 +17,16 @@ providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
+
+http:
+  routers:
+    dashboard:
+      rule: Host(`gboscaro-udemy-ticketing.duckdns.org`) && PathPrefix(`/dashboard`))
+      service: api@internal
+      middlewares: 
+        - auth
+  middlewares:
+    auth:
+      basicAuth:
+        users:
+          - admin:$apr1$5tchkyn4$2UyHYyx4Op67ERv/Dt8VB1

@@ -1,0 +1,38 @@
+{
+	auto_https off
+}
+
+:80 {
+	
+	log {
+		output file /var/log/access.log {
+			roll_size 1gb
+			roll_keep 5
+			roll_keep_for 720h
+		}
+	}
+
+	handle /api/users* {
+		reverse_proxy auth:3000
+	}
+
+	handle /api/orders* {
+		reverse_proxy orders:3000
+	}
+
+	handle /api/payments* {
+		reverse_proxy payments:3000
+	}
+
+	handle /api/tickets* {
+		reverse_proxy tickets:3000
+	}
+
+	handle /api/expiration* {
+		reverse_proxy expiration:3000
+	}
+
+	handle {
+		reverse_proxy client:3000
+	}
+}

@@ -11,7 +11,7 @@ while getopts 'qs' flag; do
   esac
 done
 
-docker context use swarm-manager
+# docker context use swarm-manager
 
 if [[ $SWARM -eq 1 ]]
 then

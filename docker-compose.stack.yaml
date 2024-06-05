@@ -64,11 +64,6 @@ services:
       - .env
     environment:
       - MONGO_URI=mongodb://auth-mongo:27017/auth
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.auth.entrypoints=web"
-      - "traefik.http.routers.auth.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`)"
-      - "traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)"
     networks:
       - auth
       - private
@@ -97,11 +92,6 @@ services:
       - NATS_URL=http://nats:4222
       - NATS_CLUSTER_ID=ticketing
       - MONGO_URI=mongodb://tickets-mongo:27017/tickets
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.tickets.entrypoints=web"
-      - "traefik.http.routers.tickets.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`)"
-      - "traefik.http.routers.tickets.rule=PathPrefix(`/api/tickets`)"
     networks:
       - private
       - tickets
@@ -130,11 +120,6 @@ services:
       - NATS_URL=http://nats:4222
       - NATS_CLUSTER_ID=ticketing
       - MONGO_URI=mongodb://orders-mongo:27017/orders
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.orders.entrypoints=web"
-      - "traefik.http.routers.orders.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`)"
-      - "traefik.http.routers.orders.rule=PathPrefix(`/api/orders`)"
     networks:
       - private
       - orders
@@ -163,11 +148,6 @@ services:
       - NATS_URL=http://nats:4222
       - NATS_CLUSTER_ID=ticketing
       - MONGO_URI=mongodb://payments-mongo:27017/payments
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.payments.entrypoints=web"
-      - "traefik.http.routers.payments.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`)"
-      - "traefik.http.routers.payments.rule=PathPrefix(`/api/payments`)"
     networks:
       - private
       - payments
@@ -194,11 +174,6 @@ services:
       - NATS_URL=http://nats:4222
       - NATS_CLUSTER_ID=ticketing
       - REDIS_HOST=expiration-redis
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.expiration.entrypoints=web"
-      - "traefik.http.routers.expiration.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`)"
-      - "traefik.http.routers.expiration.rule=PathPrefix(`/api/expiration`)"
     networks:
       - private
       - expiration
@@ -240,10 +215,25 @@ services:
     # hostname: "traefik-{{.Task.ID}}"
     ports:
       - 80:80
+      - 8080:8080
       - 443:443
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /root/traefik.yml:/traefik.yml:ro
+      - ./traefik.yml:/traefik.yml:ro
+    networks:
+      - public
+
+  caddy:
+    image: caddy:2.8.4-alpine
+    # container_name: "caddy-{{.Task.ID}}"
+    # hostname: "caddy-{{.Task.ID}}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=public"
+      - "traefik.http.routers.ticketing.entrypoints=web"
+      - "traefik.http.routers.ticketing.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`) && PathPrefix(`/`)"
     networks:
       - public
       - private
