@@ -20,7 +20,7 @@ then
         docker stack rm swarm-example
     else
         echo "Deploying Docker Swarm Stack..."
-        docker stack deploy --compose-file docker-compose.stack.yaml swarm-example
+        docker stack deploy --compose-file docker-compose.swarm.yaml swarm-example
     fi
 else
     if [[ $QUIT -eq 1 ]]

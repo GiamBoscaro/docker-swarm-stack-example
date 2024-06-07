@@ -1,0 +1,528 @@
+version: '3.8'
+
+volumes:
+  auth-data:
+    name: auth-data
+    driver: local
+  tickets-data:
+    name: tickets-data
+    driver: local
+  orders-data:
+    name: orders-data
+    driver: local
+  payments-data:
+    name: payments-data
+    driver: local
+
+networks:
+  public:
+    name: public
+    # driver: overlay
+  private:
+    name: private
+    # driver: overlay
+
+services:
+
+  ### FRONTEND ###
+
+  web:
+    image: docker.io/giammarcoboscaro/ticketing-client
+    hostname: "web-{{.Task.ID}}"
+    environment:
+      - BASE_URL=http://gboscaro-udemy-ticketing.duckdns.org
+    networks:
+      - private
+    healthcheck:
+      test: ping -c 1 localhost:3000
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 100s
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  ### AUTHENTICATION ###
+  
+  auth:
+    image: docker.io/giammarcoboscaro/ticketing-auth
+    hostname: "auth-{{.Task.ID}}"
+    env_file:
+      - .env
+    environment:
+      - MONGO_URI=mongodb://auth-mongo:27017/auth
+    networks:
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 300s
+      resources:
+        limits:
+          memory: 256M
+
+  auth-mongo:
+    image: mongo
+    hostname: "auth-mongo-{{.Task.ID}}"
+    volumes:
+      - auth-data:/data/db
+    networks:
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/auth --quiet
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+        constraints:
+          - "node.role == manager"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 256M
+
+  ### TICKETS ###
+  
+  tickets:
+    image: docker.io/giammarcoboscaro/ticketing-tickets
+    hostname: "tickets-{{.Task.ID}}"
+    env_file:
+      - .env
+    environment:
+      - NATS_CLIENT_ID=tickets
+      - NATS_URL=http://nats:4222
+      - NATS_CLUSTER_ID=ticketing
+      - MONGO_URI=mongodb://tickets-mongo:27017/tickets
+    networks:
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 300s
+      resources:
+        limits:
+          memory: 256M
+
+  tickets-mongo:
+    image: mongo
+    hostname: "tickets-mongo-{{.Task.ID}}"
+    volumes:
+      - tickets-data:/data/db
+    networks:
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/tickets --quiet
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+        constraints:
+          - "node.role == manager"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 256M
+
+  ### ORDERS ###
+  
+  orders:
+    image: docker.io/giammarcoboscaro/ticketing-orders
+    hostname: "orders-{{.Task.ID}}"
+    env_file:
+      - .env
+    environment:
+      - NATS_CLIENT_ID=orders
+      - NATS_URL=http://nats:4222
+      - NATS_CLUSTER_ID=ticketing
+      - MONGO_URI=mongodb://orders-mongo:27017/orders
+    networks:
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 300s
+      resources:
+        limits:
+          memory: 256M
+
+  orders-mongo:
+    image: mongo
+    hostname: "orders-mongo-{{.Task.ID}}"
+    volumes:
+      - orders-data:/data/db
+    networks:
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/orders --quiet
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+        constraints:
+          - "node.role == manager"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 256M
+
+  ### PAYMENTS ###
+  
+  payments:
+    image: docker.io/giammarcoboscaro/ticketing-payments
+    hostname: "payments-{{.Task.ID}}"
+    env_file:
+      - .env
+    environment:
+      - NATS_CLIENT_ID=payments
+      - NATS_URL=http://nats:4222
+      - NATS_CLUSTER_ID=ticketing
+      - MONGO_URI=mongodb://payments-mongo:27017/payments
+    networks:
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 300s
+      resources:
+        limits:
+          memory: 256M
+
+  payments-mongo:
+    image: mongo
+    hostname: "payments-mongo-{{.Task.ID}}"
+    volumes:
+      - payments-data:/data/db
+    networks:
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/payments --quiet
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+        constraints:
+          - "node.role == manager"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 256M
+
+  ### EXPIRATION ###
+  
+  expiration:
+    image: docker.io/giammarcoboscaro/ticketing-expiration
+    hostname: "expiration-{{.Task.ID}}"
+    environment:
+      - NATS_CLIENT_ID=expiration
+      - NATS_URL=http://nats:4222
+      - NATS_CLUSTER_ID=ticketing
+      - REDIS_HOST=expiration-redis
+    networks:
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 300s
+      resources:
+        limits:
+          memory: 256M
+
+  expiration-redis:
+    image: redis
+    hostname: "expiration-redis-{{.Task.ID}}"
+    networks:
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 2s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+        constraints:
+          - "node.role == manager"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 64M
+
+  ### NATS ###
+
+  nats:
+    image: nats-streaming:0.25.6
+    hostname: "nats-{{.Task.ID}}"
+    command: 
+      [
+        '-p', '4222',
+        '-m', '8222',
+        '-hbi', '5s',
+        '-hbt', '5s',
+        '-hbf', '2',
+        '-SD',
+        '-cid', 'ticketing',
+      ]
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    networks:
+      - private
+    # healthcheck:
+    #   test: ["CMD", "wget", "--spider", "http://localhost:8222/varz"]
+    #   interval: 2s
+    #   timeout: 5s
+    #   retries: 10
+    #   start_period: 5s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 64M
+
+  ### INFRA ###
+
+  traefik:
+    image: traefik:v2.11.3
+    hostname: "traefik-{{.Task.ID}}"
+    ports:
+      - 80:80
+      - 8080:8080
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.swarm.yml:/traefik.yml:ro
+    networks:
+      - public
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - "node.role == manager"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 256M
+
+  caddy:
+    image: caddy:2.8.4-alpine
+    hostname: "caddy-{{.Task.ID}}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/metrics"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=public"
+        - "traefik.http.routers.ticketing.entrypoints=web"
+        - "traefik.http.routers.ticketing.rule=Host(`gboscaro-udemy-ticketing.duckdns.org`) && PathPrefix(`/`)"
+        - "traefik.http.services.ticketing.loadbalancer.server.port=80"
+      mode: global
+      placement:
+        constraints:
+          - "node.role == manager"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 64M
+
+  duckdns:
+    image: ghcr.io/linuxserver/duckdns:version-72e081dd
+    hostname: "duckdns-{{.Task.ID}}"
+    env_file:
+      - .env
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Rome
+      - SUBDOMAINS=gboscaro-udemy-ticketing.duckdns.org
+      - DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
+      - LOG_FILE=true
+    networks:
+      - private
+    labels:
+      - "com.docker.compose.project=docker-swarm-stack-example"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 16M

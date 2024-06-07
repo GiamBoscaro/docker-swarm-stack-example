@@ -17,34 +17,27 @@ volumes:
 networks:
   public:
     name: public
-    # driver: overlay
   private:
     name: private
-    # driver: overlay
   auth:
     name: auth
-    # driver: overlay
   tickets:
     name: tickets
-    # driver: overlay
   orders:
     name: orders
-    # driver: overlay
   payments:
     name: payments
-    # driver: overlay
   expiration:
     name: expiration
-    # driver: overlay
 
 services:
 
   ### FRONTEND ###
 
-  client:
+  web:
     image: docker.io/giammarcoboscaro/ticketing-client
-    hostname: client
-    container_name: client
+    hostname: web
+    container_name: web
     ports:
       - 3000:3000
     environment:
@@ -52,7 +45,7 @@ services:
     networks:
       - private
     healthcheck:
-      test: ["CMD", "wget", "--spider", "localhost:3000"]
+      test: ["CMD", "wget", "--spider", "http://gboscaro-udemy-ticketing.duckdns.org"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -90,7 +83,7 @@ services:
       nats:
         condition: service_started 
     healthcheck:
-      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/users/currentuser"]
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/healthz"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -135,7 +128,7 @@ services:
       nats:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/tickets"]
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/healthz"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -180,11 +173,11 @@ services:
       nats:
         condition: service_started 
     healthcheck:
-      test: ping -c 1 localhost:3000
-      interval: 2s
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/healthz"]
+      interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 2s
+      start_period: 30s
 
   orders-mongo:
     image: mongo
@@ -225,11 +218,11 @@ services:
       nats:
         condition: service_started 
     healthcheck:
-      test: ping -c 1 localhost:3000
-      interval: 2s
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/healthz"]
+      interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 2s
+      start_period: 30s
 
   payments-mongo:
     image: mongo
@@ -268,11 +261,11 @@ services:
       nats:
         condition: service_started
     healthcheck:
-      test: ping -c 1 localhost:3000
-      interval: 2s
+      test: ["CMD", "wget", "--spider", "--tries=1", "localhost:3000/api/healthz"]
+      interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 2s
+      start_period: 30s
 
   expiration-redis:
     image: redis
@@ -359,13 +352,18 @@ services:
       start_period: 5s
 
   duckdns:
-    image: ghcr.io/linuxserver/duckdns:version-1ffe4e04
+    image: ghcr.io/linuxserver/duckdns:version-72e081dd
     hostname: duckdns
     container_name: duckdns
     env_file:
       - .env
     environment:
-      - SUBDOMAINS=http://gboscaro-udemy-ticketing.duckdns.org
-      - LOG_FILE=false
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Rome
+      - SUBDOMAINS=gboscaro-udemy-ticketing.duckdns.org
+      - LOG_FILE=true
+    volumes:
+      - ./logs/duckdns:/config
     networks:
       - private
