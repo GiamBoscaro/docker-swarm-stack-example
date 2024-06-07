@@ -15,6 +15,7 @@ docker context use swarm-manager
 
 if [[ $SWARM -eq 1 ]]
 then
+    if [[ $QUIT -eq 1 ]]
     then
         echo "Removing Docker Swarm Stack..."
         docker stack rm swarm-example
